@@ -5,10 +5,11 @@ import os
 import av
 import time
 import threading
+from pathlib import Path
 from dotenv import load_dotenv
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
 
-load_dotenv()
+load_dotenv(Path.home() / ".secrets" / "gmi.env")
 
 GMI_API_URL = "https://api.gmi-serving.com/v1/chat/completions"
 GMI_MODEL = "deepseek-ai/DeepSeek-V4-Pro"
