@@ -448,7 +448,7 @@ async def scan_url(request: ScanRequest):
     gemini = await gemini_analyze(url, gmi.get("html", ""), vt, gmi)
 
     # ── Phase 4: Build response ──────────────────────────────────────────────
-    verdict = gemini.get("verdict", Verdict.SUSPICIOUS)
+    verdict = gemini.get("verdict", "SUSPICIOUS")
 
     if verdict == "DANGEROUS":
         return {
