@@ -10,14 +10,13 @@ GET  /health
 import asyncio
 import json
 import os
-from enum import Enum
 from pathlib import Path
 
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -51,12 +50,6 @@ VT_SUSPICIOUS_MIN  = 1   # ≥ N suspicious  → trigger GMI deep scan
 class ScanRequest(BaseModel):
     url: str
     locale: str = "en"
-
-
-class Verdict(str, Enum):
-    SAFE       = "SAFE"
-    SUSPICIOUS = "SUSPICIOUS"
-    DANGEROUS  = "DANGEROUS"
 
 
 # ---------------------------------------------------------------------------

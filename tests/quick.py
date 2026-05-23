@@ -1,5 +1,11 @@
-import asyncio, json, sys
-sys.path.insert(0, "c:/Mr_QR")
+"""
+Mr QR — Quick 2-case sanity check
+Run with: python tests/quick.py
+Requires: gmi_worker on :8001, mock server on :9999
+"""
+
+import asyncio, json, sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backend.orchestrator import scan_url, ScanRequest
 
 async def main():

@@ -1,6 +1,17 @@
-.rocketride/
+# Secrets — never commit
 .env
-.claude/
-.github/copilot-instructions.md
 *.env
+
+# Python cache
 __pycache__/
+*.py[cod]
+.pytest_cache/
+
+# IDE / tooling
+.claude/
+.rocketride/
+.github/copilot-instructions.md
+
+# OS
+.DS_Store
+Thumbs.db
