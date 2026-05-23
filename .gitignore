@@ -1,4 +1,6 @@
 .rocketride/
 .env
+.claude/
+.github/copilot-instructions.md
 *.env
 __pycache__/
