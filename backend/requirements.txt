@@ -1,0 +1,15 @@
+# Mr QR — Python dependencies
+# Install with: pip install -r requirements.txt
+# After install, also run: playwright install chromium
+
+# ── Orchestrator (orchestrator.py) ──────────────────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+httpx>=0.27.0
+pydantic>=2.7.0
+
+# ── GMI Cloud Security Worker (gmi_worker.py) ───────────────────────────────
+playwright>=1.44.0
+
+# ── Shared ───────────────────────────────────────────────────────────────────
+python-dotenv>=1.0.0

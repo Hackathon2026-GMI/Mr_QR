@@ -1,0 +1,245 @@
+{
+  "components": [
+    {
+      "id": "webhook_1",
+      "provider": "webhook",
+      "config": {
+        "hideForm": true,
+        "mode": "Source",
+        "parameters": {},
+        "type": "webhook"
+      },
+      "ui": {
+        "position": { "x": 20, "y": 200 },
+        "measured": { "width": 150, "height": 66 },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    },
+    {
+      "id": "parse_1",
+      "provider": "parse",
+      "config": { "parameters": {} },
+      "input": [
+        { "lane": "tags", "from": "webhook_1" }
+      ],
+      "ui": {
+        "position": { "x": 240, "y": 200 },
+        "measured": { "width": 150, "height": 66 },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    },
+    {
+      "id": "question_1",
+      "provider": "question",
+      "config": { "parameters": {} },
+      "input": [
+        { "lane": "text", "from": "parse_1" }
+      ],
+      "ui": {
+        "position": { "x": 460, "y": 200 },
+        "measured": { "width": 150, "height": 66 },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    },
+    {
+      "id": "agent_rocketride_1",
+      "provider": "agent_rocketride",
+      "config": {
+        "instructions": [
+          "You are Mr QR Security Agent for FIFA World Cup 2026. Your mission: analyze a URL from a QR code scan and return a structured JSON verdict to protect fans.",
+          "",
+          "═══ PIPELINE — follow in strict order ═══",
+          "",
+          "STEP 1 — VIRUSTOTAL REPUTATION CHECK",
+          "Submit the URL for analysis:",
+          "  POST https://www.virustotal.com/api/v3/urls",
+          "  Headers: { \"x-apikey\": \"<your VT API key>\" }",
+          "  Body (form-data): url=<URL_TO_SCAN>",
+          "Wait ~5 seconds then poll (up to 6 times, 5-second intervals):",
+          "  GET https://www.virustotal.com/api/v3/analyses/<analysis_id>",
+          "  Headers: { \"x-apikey\": \"<your VT API key>\" }",
+          "Stop polling when status == 'completed'. Record malicious and suspicious counts.",
+          "",
+          "STEP 2 — EVALUATE VT RESULTS",
+          "  If malicious >= 2: STOP NOW. Return immediately:",
+          "  { \"verdict\":\"DANGEROUS\", \"block_reason\":\"Flagged malicious by VirusTotal\", \"field_map\":{}, \"auto_fill_safe\":false }",
+          "  If malicious >= 1 OR suspicious >= 1: proceed to Step 3 (deep scan required).",
+          "  If clean: proceed to Step 3 (still need HTML for field mapping).",
+          "",
+          "STEP 3 — GMI CLOUD DEEP SECURITY SCAN",
+          "  POST <GMI_WORKER_URL>/analyze",
+          "  Body: { \"url\": \"<URL_TO_SCAN>\" }",
+          "  The worker returns: html, screenshot_b64, has_download_trigger, visual_risk_score.",
+          "  If has_download_trigger == true: STOP NOW. Return:",
+          "  { \"verdict\":\"DANGEROUS\", \"block_reason\":\"Drive-by download detected\", \"field_map\":{}, \"auto_fill_safe\":false, \"gmi_screenshot\":\"<screenshot_b64>\" }",
+          "",
+          "STEP 4 — GEMINI SEMANTIC ANALYSIS",
+          "Call Google Gemini 1.5 Flash with the URL, HTML (first 50 000 chars), and all scan results.",
+          "  POST https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=<GEMINI_API_KEY>",
+          "  Body: { \"contents\": [{\"role\":\"user\",\"parts\":[{\"text\":\"<assembled_prompt>\"}]}], \"generationConfig\":{\"responseMimeType\":\"application/json\",\"temperature\":0.1} }",
+          "Gemini returns: verdict, is_official_entity, official_entity_name, phishing_indicators, field_map, auto_fill_safe, risk_summary.",
+          "",
+          "STEP 5 — RETURN FINAL RESULT",
+          "Return the complete JSON from Gemini, enriched with virustotal stats and gmi_screenshot (if DANGEROUS).",
+          "",
+          "═══ OUTPUT CONTRACT ═══",
+          "SAFE response:    { verdict, is_official_entity, official_entity_name, risk_summary, field_map, auto_fill_safe, virustotal }",
+          "DANGEROUS response: { verdict, block_reason, phishing_indicators, virustotal, gmi_screenshot, field_map:{}, auto_fill_safe:false }"
+        ],
+        "max_waves": 12,
+        "parameters": {}
+      },
+      "input": [
+        { "lane": "questions", "from": "question_1" }
+      ],
+      "ui": {
+        "position": { "x": 680, "y": 200 },
+        "measured": { "width": 150, "height": 86 },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    },
+    {
+      "id": "response_answers_1",
+      "provider": "response_answers",
+      "config": { "laneName": "answers" },
+      "input": [
+        { "lane": "answers", "from": "agent_rocketride_1" }
+      ],
+      "ui": {
+        "position": { "x": 900, "y": 200 },
+        "measured": { "width": 150, "height": 66 },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    },
+    {
+      "id": "llm_gmi_cloud_1",
+      "provider": "llm_gmi_cloud",
+      "config": {
+        "profile": "deepseek-v3",
+        "deepseek-v3": {
+          "apikey": "${ROCKETRIDE_GMI_API_KEY}"
+        },
+        "parameters": {}
+      },
+      "control": [
+        { "classType": "llm", "from": "agent_rocketride_1" }
+      ],
+      "ui": {
+        "position": { "x": 570, "y": 390 },
+        "measured": { "width": 150, "height": 66 },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    },
+    {
+      "id": "memory_internal_1",
+      "provider": "memory_internal",
+      "config": { "type": "memory_internal" },
+      "control": [
+        { "classType": "memory", "from": "agent_rocketride_1" }
+      ],
+      "ui": {
+        "position": { "x": 750, "y": 390 },
+        "measured": { "width": 150, "height": 66 },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    },
+    {
+      "id": "tool_http_request_1",
+      "provider": "tool_http_request",
+      "config": {
+        "type": "tool_http_request",
+        "allowGET": true,
+        "allowPOST": true,
+        "allowPUT": false,
+        "allowPATCH": false,
+        "allowDELETE": false,
+        "allowHEAD": false,
+        "allowOPTIONS": false,
+        "rateLimitPerSecond": 2,
+        "rateLimitPerMinute": 20,
+        "maxConcurrentRequests": 2,
+        "urlWhitelist": [
+          { "whitelistPattern": "^https://www\\.virustotal\\.com/api/v3/.*" }
+        ]
+      },
+      "control": [
+        { "classType": "tool", "from": "agent_rocketride_1" }
+      ],
+      "ui": {
+        "position": { "x": 390, "y": 530 },
+        "measured": { "width": 150, "height": 40 },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    },
+    {
+      "id": "tool_http_request_2",
+      "provider": "tool_http_request",
+      "config": {
+        "type": "tool_http_request",
+        "allowGET": false,
+        "allowPOST": true,
+        "allowPUT": false,
+        "allowPATCH": false,
+        "allowDELETE": false,
+        "allowHEAD": false,
+        "allowOPTIONS": false,
+        "rateLimitPerSecond": 1,
+        "rateLimitPerMinute": 10,
+        "maxConcurrentRequests": 1,
+        "urlWhitelist": [
+          { "whitelistPattern": "^https?://.*\\.gmicloud\\.ai/.*" },
+          { "whitelistPattern": "^http://localhost:8001/.*" }
+        ]
+      },
+      "control": [
+        { "classType": "tool", "from": "agent_rocketride_1" }
+      ],
+      "ui": {
+        "position": { "x": 610, "y": 530 },
+        "measured": { "width": 150, "height": 40 },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    },
+    {
+      "id": "tool_http_request_3",
+      "provider": "tool_http_request",
+      "config": {
+        "type": "tool_http_request",
+        "allowGET": false,
+        "allowPOST": true,
+        "allowPUT": false,
+        "allowPATCH": false,
+        "allowDELETE": false,
+        "allowHEAD": false,
+        "allowOPTIONS": false,
+        "rateLimitPerSecond": 2,
+        "rateLimitPerMinute": 30,
+        "maxConcurrentRequests": 2,
+        "urlWhitelist": [
+          { "whitelistPattern": "^https://generativelanguage\\.googleapis\\.com/.*" }
+        ]
+      },
+      "control": [
+        { "classType": "tool", "from": "agent_rocketride_1" }
+      ],
+      "ui": {
+        "position": { "x": 830, "y": 530 },
+        "measured": { "width": 150, "height": 40 },
+        "nodeType": "default",
+        "formDataValid": true
+      }
+    }
+  ],
+  "project_id": "f3a8c1e2-7d45-4b9f-8e6a-2c0d9b3f1a5e",
+  "viewport": { "x": 0, "y": 0, "zoom": 1 },
+  "version": 1
+}
