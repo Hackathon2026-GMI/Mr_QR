@@ -65,8 +65,8 @@ async def _vt_url_scan(client: httpx.AsyncClient, url: str, headers: dict) -> di
     submit.raise_for_status()
     analysis_id = submit.json()["data"]["id"]
 
-    for _ in range(6):
-        await asyncio.sleep(5)
+    for _ in range(7):
+        await asyncio.sleep(3)
         poll = await client.get(
             f"https://www.virustotal.com/api/v3/analyses/{analysis_id}",
             headers=headers,
@@ -272,40 +272,52 @@ Return ONLY a valid JSON object — no markdown, no preamble:
 
 ━━━ VERDICT RULES — apply in order, first match wins ━━━
 
+CONTEXT: This app is used by FIFA World Cup 2026 fans scanning QR codes at watch parties,
+raffles, sponsor booths, and local events. Most QR codes point to legitimate third-party
+sites (sponsors, venues, event apps) that are NOT official FIFA domains. Being non-official
+is NOT a reason to flag anything. Only concrete technical threat signals matter.
+
 KEY CONCEPT — malicious_ratio:
   A single engine flagging a URL that 60+ others mark clean is NOISE, not signal.
-  Use malicious_ratio (percentage of engines that flagged it) as the real threat score:
-    < 5%  = noise / false positive — treat as clean
-    5–15% = weak signal — raise to SUSPICIOUS
-    > 15% = real threat — treat as genuinely malicious
+    < 5%  with few malicious  = noise / false positive — SAFE
+    5–15% corroborated        = weak real signal — SUSPICIOUS
+    > 15%                     = real threat — DANGEROUS
+
+IMPORTANT — domain_community_malicious: raw lifetime vote count. Popular sites accumulate
+troll votes (google.com has 82 despite 0/64 malicious engine detections). NEVER use it.
+
+IMPORTANT — suspicious_engines count alone is NOT a signal. One or two VT engines calling a
+URL "suspicious" while 60+ say clean is a well-known false-positive pattern. Ignore
+suspicious_engines < 3 unless corroborated by actual malicious engine detections.
 
 DANGEROUS  if ANY of:
-  • domain_known_bad = true
-  • domain_community_malicious >= 3
-  • malicious_ratio > 0.15  (15%+ of all engines agree it is malicious)
-  • malicious >= 5  (regardless of ratio — absolute high count)
-  • is_official_entity = false AND collects passport/ID/payment data AND (suspicious > 0 OR malicious_ratio > 0.05)
-  • is_official_entity = false AND visual_risk_score >= 70
+  • domain_known_bad = true  (formal malware/phishing engine categorisation — reliable)
+  • malicious_ratio > 0.15  (strong multi-engine consensus)
+  • malicious >= 5           (high absolute count)
+  • is_official_entity = false AND page collects passport/ID/payment AND malicious_ratio > 0.08
+  • visual_risk_score >= 85 AND is_official_entity = false
 
-SUSPICIOUS  if ANY of:
-  • is_noise = false AND malicious_ratio > 0.05  (weak real signal, not dismissed noise)
-  • is_official_entity = false AND no sensitive fields detected
-  • suspicious > 0
-  • visual_risk_score >= 40
-  • domain_categories contain "gambling", "adult", "piracy"
+SUSPICIOUS  only when a concrete signal exists — one of:
+  • is_noise = false AND malicious_ratio > 0.05 AND malicious >= 2  (corroborated engines)
+  • visual_risk_score >= 70  (clear visual phishing / brand impersonation detected)
+  • domain_categories explicitly contain "malware", "phishing", or "scam"
+  • is_official_entity = false AND collects passport/ID/payment AND suspicious_engines >= 3
 
-SAFE:
-  • is_official_entity = true AND (malicious_ratio < 0.05 OR is_noise = true) AND visual_risk_score < 40
-  • is_official_entity = false is never SAFE
+SAFE  (the default for any clean site — sponsors, watch parties, raffles, venues, google.com):
+  • Everything that does not meet a SUSPICIOUS or DANGEROUS condition above
+  • google.com, spotify.com, local businesses, sponsor sites, raffle pages = SAFE
+  • suspicious_engines = 1–2 with malicious = 0 = noise → SAFE
+  • Being non-official FIFA is not a reason for anything other than SAFE
+  • Only official FIFA domains get auto_fill_safe = true
 
 auto_fill_safe = true  ONLY when verdict=SAFE AND is_official_entity=true
-field_map  = {}        always when verdict=DANGEROUS (never help fill phishing forms)
+field_map  = {}        always when verdict=DANGEROUS (never help fill malicious forms)
 """
 
 
 async def gemini_analyze(url: str, html: str, vt: dict, gmi: dict) -> dict:
     """Send all scan context to Gemini via GMI inference API and parse structured JSON."""
-    html_excerpt = html[:150_000] if len(html) > 150_000 else html
+    html_excerpt = html[:50_000] if len(html) > 50_000 else html
 
     prompt = f"""URL: {url}
 
@@ -393,11 +405,26 @@ async def scan_url(request: ScanRequest):
     """
     url = request.url.strip()
 
-    # ── Phase 1: VirusTotal ──────────────────────────────────────────────────
-    vt = await virustotal_scan(url)
+    _gmi_defaults: dict = {
+        "has_download_trigger":      False,
+        "content_disposition_found": False,
+        "visual_risk_score":         0,
+        "suspicious_requests":       [],
+        "final_url":                 url,
+        "html":                      "",
+        "screenshot_b64":            None,
+    }
 
-    # Hard block — VT confirmed malicious with real consensus (saves GMI + Gemini costs)
-    # Ratio guard prevents a single noisy engine from triggering a block
+    async def _safe_gmi() -> dict:
+        try:
+            return await gmi_deep_scan(url)
+        except Exception as exc:
+            return {**_gmi_defaults, "error": str(exc)}
+
+    # ── Phase 1+2: VT and GMI deep scan in parallel (saves ~15 s) ───────────
+    vt, gmi = await asyncio.gather(virustotal_scan(url), _safe_gmi())
+
+    # Hard block — VT confirmed malicious with real consensus
     if vt["malicious"] >= VT_MALICIOUS_BLOCK and not vt.get("is_noise", False):
         return {
             "verdict":      "DANGEROUS",
@@ -411,23 +438,6 @@ async def scan_url(request: ScanRequest):
             "field_map":      {},
             "auto_fill_safe": False,
         }
-
-    # ── Phase 2: GMI Cloud Playwright deep scan ──────────────────────────────
-    gmi: dict = {
-        "has_download_trigger":   False,
-        "content_disposition_found": False,
-        "visual_risk_score":      0,
-        "suspicious_requests":    [],
-        "final_url":              url,
-        "html":                   "",
-        "screenshot_b64":         None,
-    }
-
-    try:
-        gmi = await gmi_deep_scan(url)
-    except Exception as exc:
-        # Worker unreachable — proceed with empty HTML (Gemini will use domain only)
-        gmi["error"] = str(exc)
 
     # Hard block — drive-by download caught by Playwright
     if gmi.get("has_download_trigger"):

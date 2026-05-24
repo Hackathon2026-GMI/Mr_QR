@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Mr QR — FIFA WC2026 Security Scanner</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #050B18;
+      --surface:     #0A1628;
+      --card:        rgba(8, 18, 40, 0.92);
+      --border:      rgba(255,255,255,0.07);
+      --border-hi:   rgba(255,255,255,0.12);
+      --text:        #E8EEFF;
+      --muted:       #4A5F80;
+      --muted-hi:    #7B90B8;
+
+      --accent:      #4F6EF7;
+      --accent-dim:  rgba(79,110,247,0.12);
+      --accent-glow: rgba(79,110,247,0.45);
+
+      --safe:        #00D68F;
+      --safe-dim:    rgba(0,214,143,0.1);
+      --safe-glow:   rgba(0,214,143,0.4);
+
+      --warn:        #FFB020;
+      --warn-dim:    rgba(255,176,32,0.1);
+      --warn-glow:   rgba(255,176,32,0.4);
+
+      --danger:      #FF4D4F;
+      --danger-dim:  rgba(255,77,79,0.1);
+      --danger-glow: rgba(255,77,79,0.4);
+
+      --r-xl: 24px;
+      --r-lg: 16px;
+      --r-md: 12px;
+      --r-sm: 8px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ─── Ambient orbs ─────────────────────────────── */
+    .bg-ambient {
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 0; overflow: hidden;
+    }
+    .bg-orb {
+      position: absolute; border-radius: 50%;
+      filter: blur(90px); will-change: transform;
+    }
+    .orb-1 {
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(79,110,247,0.14), transparent 70%);
+      top: -250px; left: -150px;
+      animation: drift1 28s ease-in-out infinite;
+    }
+    .orb-2 {
+      width: 480px; height: 480px;
+      background: radial-gradient(circle, rgba(0,214,143,0.08), transparent 70%);
+      bottom: -180px; right: -130px;
+      animation: drift2 35s ease-in-out infinite;
+    }
+    .orb-3 {
+      width: 350px; height: 350px;
+      background: radial-gradient(circle, rgba(255,77,79,0.05), transparent 70%);
+      top: 40%; left: 60%;
+      animation: drift3 42s ease-in-out infinite;
+    }
+    @keyframes drift1 {
+      0%,100% { transform: translate(0,0); }
+      33%      { transform: translate(40px,-30px); }
+      66%      { transform: translate(-25px,40px); }
+    }
+    @keyframes drift2 {
+      0%,100% { transform: translate(0,0); }
+      33%      { transform: translate(-35px,25px); }
+      66%      { transform: translate(30px,-35px); }
+    }
+    @keyframes drift3 {
+      0%,100% { transform: translate(0,0); }
+      50%      { transform: translate(-40px,-30px); }
+    }
+
+    /* ─── Screens ──────────────────────────────────── */
+    .screen {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 1;
+    }
+    .screen.active { opacity: 1; pointer-events: auto; }
+
+    /* ─── Header ───────────────────────────────────── */
+    .hdr {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      padding: 14px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .hdr::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: rgba(5,11,24,0.72);
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid var(--border);
+    }
+    .hdr-left {
+      position: relative;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .hdr-logo {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, #5B7FFF 0%, #3D5CF5 100%);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 0 1px rgba(79,110,247,0.4), 0 4px 20px rgba(79,110,247,0.35);
+      flex-shrink: 0;
+    }
+    .hdr-logo svg { width: 20px; height: 20px; }
+    .hdr-name { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; }
+    .hdr-sub  { font-size: 10px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .hdr-pill {
+      position: relative;
+      font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
+      color: var(--accent);
+      background: var(--accent-dim);
+      border: 1px solid rgba(79,110,247,0.22);
+      padding: 5px 11px; border-radius: 100px;
+    }
+
+    /* ─── Scanner ──────────────────────────────────── */
+    #screen-scanner { background: #000; }
+
+    #video {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%; object-fit: cover;
+    }
+    #canvas { display: none; }
+
+    /* Vignette + scan window using outline trick */
+    .scan-frame {
+      position: absolute;
+      left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(72vw, 288px);
+      height: min(72vw, 288px);
+      border-radius: 18px;
+      z-index: 2;
+      /* Darkens everything OUTSIDE this element */
+      box-shadow: 0 0 0 9999px rgba(3,8,20,0.62);
+    }
+
+    /* Corner brackets */
+    .sc { position: absolute; width: 32px; height: 32px; }
+    .sc.tl { top: -2px; left: -2px; }
+    .sc.tr { top: -2px; right: -2px; }
+    .sc.bl { bottom: -2px; left: -2px; }
+    .sc.br { bottom: -2px; right: -2px; }
+
+    .sc::before, .sc::after {
+      content: ''; position: absolute;
+      background: var(--accent); border-radius: 3px;
+      transition: background 0.25s ease, box-shadow 0.25s ease;
+    }
+    /* horizontal */
+    .sc.tl::before, .sc.tr::before { top:    0; height: 3px; width: 100%; }
+    .sc.bl::before, .sc.br::before { bottom: 0; height: 3px; width: 100%; }
+    /* vertical */
+    .sc.tl::after, .sc.bl::after   { left:  0; width: 3px; height: 100%; }
+    .sc.tr::after, .sc.br::after   { right: 0; width: 3px; height: 100%; }
+
+    .sc.lit::before, .sc.lit::after {
+      background: var(--safe);
+      box-shadow: 0 0 14px var(--safe-glow), 0 0 4px var(--safe);
+    }
+
+    /* Inner glow border of scan window */
+    .scan-frame::before {
+      content: ''; position: absolute; inset: -1px;
+      border-radius: 19px;
+      border: 1px solid rgba(79,110,247,0.18);
+      animation: frame-pulse 3s ease-in-out infinite;
+    }
+    @keyframes frame-pulse {
+      0%,100% { opacity: 0.4; }
+      50%      { opacity: 1; }
+    }
+
+    /* Scan line */
+    .scan-beam {
+      position: absolute; left: 8px; right: 8px; height: 2px; top: 0; border-radius: 2px;
+      background: linear-gradient(90deg,
+        transparent 0%, rgba(79,110,247,0.6) 20%,
+        #4F6EF7 50%, rgba(79,110,247,0.6) 80%, transparent 100%);
+      box-shadow: 0 0 16px rgba(79,110,247,0.7), 0 0 8px rgba(79,110,247,0.4);
+      animation: beam-sweep 2.4s cubic-bezier(0.37,0,0.63,1) infinite;
+    }
+    @keyframes beam-sweep {
+      0%   { top: 4px;         opacity: 0; }
+      6%   { opacity: 1; }
+      94%  { opacity: 1; }
+      100% { top: calc(100% - 6px); opacity: 0; }
+    }
+
+    /* Top gradient fade */
+    .scan-top-fade {
+      position: absolute; top: 0; left: 0; right: 0; height: 140px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.55), transparent);
+      z-index: 3; pointer-events: none;
+    }
+
+    /* Bottom bar */
+    .scan-bar {
+      position: absolute; bottom: 0; left: 0; right: 0; z-index: 5;
+      padding: 32px 24px max(env(safe-area-inset-bottom, 0px), 32px);
+      background: linear-gradient(to top, rgba(3,8,20,0.88) 0%, transparent 100%);
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+    }
+    .scan-hint {
+      font-size: 13px; font-weight: 500;
+      color: rgba(255,255,255,0.65);
+      letter-spacing: 0.01em;
+      text-align: center;
+    }
+    .scan-detected {
+      font-size: 11px; color: var(--safe);
+      font-family: 'Inter', monospace;
+      max-width: 300px; text-align: center;
+      word-break: break-all; line-height: 1.5;
+      min-height: 16px;
+    }
+    .btn-flip {
+      padding: 9px 22px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.13);
+      border-radius: 100px;
+      color: rgba(255,255,255,0.75);
+      font-size: 13px; font-weight: 500; font-family: inherit;
+      cursor: pointer; letter-spacing: 0.01em;
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn-flip:hover  { background: rgba(255,255,255,0.13); border-color: rgba(255,255,255,0.22); }
+    .btn-flip:active { background: rgba(255,255,255,0.05); }
+
+    /* ─── Camera error ─────────────────────────────── */
+    #screen-cam-error {
+      align-items: center; justify-content: center;
+      padding: 24px; background: var(--bg);
+    }
+    .cam-card {
+      width: 100%; max-width: 360px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl); padding: 36px 28px;
+      text-align: center;
+      backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+    }
+    .cam-icon { font-size: 48px; margin-bottom: 18px; }
+    .cam-card h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.025em; margin-bottom: 8px; }
+    .cam-card p  { font-size: 14px; color: var(--muted-hi); line-height: 1.6; margin-bottom: 24px; }
+    .url-input {
+      width: 100%; padding: 13px 16px; margin-bottom: 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      color: var(--text); font-size: 14px; font-family: inherit;
+      outline: none; transition: border-color 0.2s;
+      display: block;
+    }
+    .url-input:focus { border-color: var(--accent); }
+    .url-input::placeholder { color: var(--muted); }
+
+    /* ─── Loading ──────────────────────────────────── */
+    #screen-loading {
+      align-items: center; justify-content: center;
+      padding: 24px; background: var(--bg);
+    }
+
+    .loader-wrap {
+      position: relative;
+      width: 172px; height: 172px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 40px;
+    }
+    .l-ring {
+      position: absolute; border-radius: 50%;
+      border: 1.5px solid transparent; will-change: transform;
+    }
+    .l-ring-1 {
+      width: 172px; height: 172px;
+      border-top-color: var(--accent);
+      animation: spin 1.6s linear infinite;
+    }
+    .l-ring-2 {
+      width: 138px; height: 138px;
+      border-right-color: rgba(79,110,247,0.5);
+      animation: spin 2.8s linear infinite reverse;
+    }
+    .l-ring-3 {
+      width: 108px; height: 108px;
+      border-bottom-color: rgba(79,110,247,0.28);
+      animation: spin 4s linear infinite;
+    }
+    .l-core {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(79,110,247,0.2) 0%, rgba(79,110,247,0.06) 100%);
+      border: 1px solid rgba(79,110,247,0.3);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 0 8px rgba(79,110,247,0.05), 0 0 40px rgba(79,110,247,0.25);
+      animation: core-pulse 2.2s ease-in-out infinite;
+    }
+    .l-core svg {
+      width: 28px; height: 28px; stroke: var(--accent);
+      fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    }
+    @keyframes spin       { to { transform: rotate(360deg); } }
+    @keyframes core-pulse {
+      0%,100% { box-shadow: 0 0 0 8px rgba(79,110,247,0.05), 0 0 30px rgba(79,110,247,0.2); }
+      50%      { box-shadow: 0 0 0 14px rgba(79,110,247,0.03), 0 0 55px rgba(79,110,247,0.35); transform: scale(1.04); }
+    }
+
+    .l-title {
+      font-size: 18px; font-weight: 700;
+      letter-spacing: -0.025em; margin-bottom: 6px; text-align: center;
+    }
+    .l-url {
+      font-size: 11px; color: var(--muted-hi);
+      font-family: monospace;
+      max-width: 310px; text-align: center;
+      word-break: break-all; line-height: 1.55;
+      margin-bottom: 32px;
+    }
+
+    .l-steps { list-style: none; width: 100%; max-width: 272px; display: flex; flex-direction: column; gap: 3px; }
+    .l-step {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 14px; border-radius: var(--r-sm);
+      font-size: 13px; font-weight: 500;
+      color: var(--muted); transition: background 0.3s, color 0.3s;
+    }
+    .l-step.active { background: var(--accent-dim); color: var(--text); }
+    .l-step.done   { color: var(--safe); }
+    .l-step-dot {
+      width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700;
+      border: 1.5px solid currentColor;
+      transition: all 0.3s;
+    }
+    .l-step.active .l-step-dot {
+      background: var(--accent); border-color: var(--accent); color: #fff;
+      animation: dot-ping 1.1s ease-in-out infinite;
+    }
+    .l-step.done .l-step-dot {
+      background: var(--safe); border-color: var(--safe); color: #000;
+    }
+    @keyframes dot-ping {
+      0%,100% { transform: scale(1); box-shadow: 0 0 0 0 var(--accent-glow); }
+      50%      { transform: scale(1.15); box-shadow: 0 0 0 7px rgba(79,110,247,0); }
+    }
+
+    /* ─── Result ───────────────────────────────────── */
+    #screen-result {
+      overflow-y: auto; -webkit-overflow-scrolling: touch;
+      background: var(--bg);
+      align-items: stretch; justify-content: flex-start;
+    }
+    .result-scroll {
+      padding: 76px 16px 48px;
+      display: flex; flex-direction: column; align-items: center;
+    }
+
+    /* Verdict hero */
+    .v-hero {
+      width: 100%; max-width: 448px;
+      border-radius: var(--r-xl) var(--r-xl) 0 0;
+      padding: 30px 26px 26px; position: relative; overflow: hidden;
+    }
+    .v-hero::after {
+      content: ''; position: absolute; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Ccircle cx='40' cy='40' r='1' fill='white' fill-opacity='0.06'/%3E%3Ccircle cx='0' cy='0' r='1' fill='white' fill-opacity='0.06'/%3E%3Ccircle cx='80' cy='0' r='1' fill='white' fill-opacity='0.06'/%3E%3Ccircle cx='0' cy='80' r='1' fill='white' fill-opacity='0.06'/%3E%3Ccircle cx='80' cy='80' r='1' fill='white' fill-opacity='0.06'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+    .v-hero.safe    { background: linear-gradient(150deg, rgba(0,214,143,0.22) 0%, rgba(0,214,143,0.06) 100%); border: 1px solid rgba(0,214,143,0.28); border-bottom: none; }
+    .v-hero.suspicious { background: linear-gradient(150deg, rgba(255,176,32,0.22) 0%, rgba(255,176,32,0.06) 100%); border: 1px solid rgba(255,176,32,0.28); border-bottom: none; }
+    .v-hero.dangerous  { background: linear-gradient(150deg, rgba(255,77,79,0.22) 0%, rgba(255,77,79,0.06) 100%); border: 1px solid rgba(255,77,79,0.28); border-bottom: none; }
+
+    .v-icon {
+      width: 60px; height: 60px; border-radius: 18px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; font-weight: 800; margin-bottom: 18px;
+      position: relative;
+    }
+    .safe    .v-icon { background: var(--safe-dim);   color: var(--safe);   box-shadow: 0 0 30px var(--safe-glow),   0 0 0 1px rgba(0,214,143,0.25); }
+    .suspicious .v-icon { background: var(--warn-dim);   color: var(--warn);   box-shadow: 0 0 30px var(--warn-glow),   0 0 0 1px rgba(255,176,32,0.25); }
+    .dangerous  .v-icon { background: var(--danger-dim); color: var(--danger); box-shadow: 0 0 30px var(--danger-glow), 0 0 0 1px rgba(255,77,79,0.25); }
+
+    .v-verdict {
+      font-size: 32px; font-weight: 900;
+      letter-spacing: -0.04em; line-height: 1; margin-bottom: 10px;
+    }
+    .safe    .v-verdict { color: var(--safe); }
+    .suspicious .v-verdict { color: var(--warn); }
+    .dangerous  .v-verdict { color: var(--danger); }
+
+    .v-entity  { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+    .v-purpose { font-size: 13px; color: rgba(255,255,255,0.45); }
+
+    /* Details card */
+    .v-details {
+      width: 100%; max-width: 448px;
+      background: var(--card);
+      border-radius: 0 0 var(--r-xl) var(--r-xl);
+      border: 1px solid var(--border); border-top: none;
+      backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+      overflow: hidden;
+    }
+    .v-details.safe    { border-color: rgba(0,214,143,0.2); }
+    .v-details.suspicious { border-color: rgba(255,176,32,0.2); }
+    .v-details.dangerous  { border-color: rgba(255,77,79,0.2); }
+
+    .v-sec {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .v-sec:last-child { border-bottom: none; }
+
+    .v-sec-lbl {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 11px;
+    }
+
+    /* Autofill pill */
+    .autofill-pill {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px;
+      background: var(--safe-dim);
+      border: 1px solid rgba(0,214,143,0.22);
+      border-radius: var(--r-md);
+      font-size: 13px; font-weight: 600; color: var(--safe);
+    }
+    .autofill-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--safe); box-shadow: 0 0 8px var(--safe-glow);
+      animation: blink 2s ease-in-out infinite; flex-shrink: 0;
+    }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+    /* Risk text */
+    .risk-text { font-size: 14px; line-height: 1.7; color: rgba(232,238,255,0.78); }
+
+    /* Threat items */
+    .threat-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 9px 12px; border-radius: var(--r-sm);
+      background: rgba(255,77,79,0.07);
+      border-left: 2px solid rgba(255,77,79,0.6);
+      font-size: 13px; color: rgba(255,200,200,0.88);
+      margin-bottom: 7px; line-height: 1.5;
+    }
+    .threat-item:last-child { margin-bottom: 0; }
+    .threat-icon { color: var(--danger); flex-shrink: 0; margin-top: 1px; }
+
+    /* Vault chips */
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      padding: 5px 11px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(79,110,247,0.22);
+      border-radius: 100px;
+      font-size: 11px; font-weight: 600; font-family: monospace;
+      color: var(--accent); letter-spacing: 0.02em;
+    }
+
+    /* VT grid */
+    .vt-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    }
+    .vt-box {
+      padding: 14px 14px 12px;
+      background: rgba(255,255,255,0.027);
+      border: 1px solid var(--border); border-radius: var(--r-md);
+    }
+    .vt-box-lbl {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 5px;
+    }
+    .vt-box-val {
+      font-size: 22px; font-weight: 800; letter-spacing: -0.03em; line-height: 1;
+    }
+    .vt-box-val.good { color: var(--safe); }
+    .vt-box-val.bad  { color: var(--danger); }
+    .vt-box-val.neutral { color: var(--text); }
+    .vt-box-sub {
+      font-size: 10px; color: var(--muted); margin-top: 3px; line-height: 1.4;
+    }
+
+    /* Screenshot */
+    .ss-thumb {
+      border-radius: var(--r-md); overflow: hidden;
+      border: 1px solid var(--border); cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .ss-thumb:active { transform: scale(0.98); }
+    .ss-thumb img { width: 100%; display: block; }
+
+    /* ─── Buttons ───────────────────────────────────── */
+    .btn-row { display: flex; gap: 10px; }
+    .btn {
+      flex: 1; padding: 14px 16px; border-radius: var(--r-md);
+      font-size: 14px; font-weight: 600; font-family: inherit;
+      cursor: pointer; border: none; text-align: center;
+      transition: opacity 0.15s, transform 0.1s;
+      letter-spacing: -0.01em;
+    }
+    .btn:active { opacity: 0.75; transform: scale(0.97); }
+
+    .btn-safe    { background: var(--safe);   color: #000; box-shadow: 0 4px 20px rgba(0,214,143,0.3); }
+    .btn-warn    { background: var(--warn);   color: #000; box-shadow: 0 4px 20px rgba(255,176,32,0.3); }
+    .btn-danger  { background: var(--danger); color: #fff; box-shadow: 0 4px 20px rgba(255,77,79,0.3); }
+    .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 20px rgba(79,110,247,0.3); }
+    .btn-ghost   { background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--border); }
+
+    .btn-full {
+      width: 100%; padding: 14px;
+      background: var(--accent); color: #fff; border: none;
+      border-radius: var(--r-md); font-size: 15px; font-weight: 600; font-family: inherit;
+      cursor: pointer; box-shadow: 0 4px 20px rgba(79,110,247,0.3);
+      transition: opacity 0.15s;
+    }
+    .btn-full:active { opacity: 0.82; }
+
+    .action-prompt {
+      font-size: 12px; color: var(--muted-hi); text-align: center;
+      margin-top: 11px; line-height: 1.55;
+    }
+
+    /* ─── Screenshot modal ─────────────────────────── */
+    #ss-modal {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.95); z-index: 200;
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    #ss-modal.open { display: flex; }
+    #ss-modal img  { max-width: 100%; max-height: 90vh; border-radius: var(--r-md); }
+  </style>
+</head>
+<body>
+
+<!-- Ambient glows -->
+<div class="bg-ambient">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+
+<!-- Header (always visible) -->
+<header class="hdr">
+  <div class="hdr-left">
+    <div class="hdr-logo">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3" y="3" width="7" height="7" rx="1.5" fill="white" opacity="0.9"/>
+        <rect x="14" y="3" width="7" height="7" rx="1.5" fill="white" opacity="0.9"/>
+        <rect x="3" y="14" width="7" height="7" rx="1.5" fill="white" opacity="0.9"/>
+        <rect x="14" y="14" width="3" height="3" rx="0.7" fill="white" opacity="0.9"/>
+        <rect x="18" y="14" width="3" height="3" rx="0.7" fill="white" opacity="0.9"/>
+        <rect x="14" y="18" width="3" height="3" rx="0.7" fill="white" opacity="0.9"/>
+        <rect x="18" y="18" width="3" height="3" rx="0.7" fill="white" opacity="0.9"/>
+      </svg>
+    </div>
+    <div>
+      <div class="hdr-name">Mr QR</div>
+      <div class="hdr-sub">FIFA WC 2026</div>
+    </div>
+  </div>
+  <div class="hdr-pill">Security Scanner</div>
+</header>
+
+<!-- Screenshot modal -->
+<div id="ss-modal" onclick="this.classList.remove('open')">
+  <img id="modal-img" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="Page screenshot" />
+</div>
+
+<!-- ═══════════════════════════════════
+     SCREEN: Scanner
+═══════════════════════════════════ -->
+<div id="screen-scanner" class="screen active">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas"></canvas>
+  <div class="scan-top-fade"></div>
+
+  <!-- Scanning reticle -->
+  <div class="scan-frame" id="scan-frame">
+    <div class="sc tl" id="c-tl"></div>
+    <div class="sc tr" id="c-tr"></div>
+    <div class="sc bl" id="c-bl"></div>
+    <div class="sc br" id="c-br"></div>
+    <div class="scan-beam"></div>
+  </div>
+
+  <!-- Bottom status bar -->
+  <div class="scan-bar">
+    <p class="scan-hint" id="scanner-hint">Point at a QR code to scan</p>
+    <p class="scan-detected" id="detected-url"></p>
+    <button class="btn-flip" onclick="flipCamera()">⇅ Flip Camera</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     SCREEN: Camera Error / Manual
+═══════════════════════════════════ -->
+<div id="screen-cam-error" class="screen">
+  <div class="cam-card">
+    <div class="cam-icon">📷</div>
+    <h2>Camera Unavailable</h2>
+    <p>Grant camera permission in your browser, or paste a URL below to run a manual scan.</p>
+    <div id="cam-input-wrap">
+      <input class="url-input" type="url" id="manual-url" placeholder="https://tickets.fifa.com/…" />
+      <button class="btn-full" onclick="submitManualUrl()">Scan URL</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     SCREEN: Loading
+═══════════════════════════════════ -->
+<div id="screen-loading" class="screen">
+  <!-- Orbital loader -->
+  <div class="loader-wrap">
+    <div class="l-ring l-ring-1"></div>
+    <div class="l-ring l-ring-2"></div>
+    <div class="l-ring l-ring-3"></div>
+    <div class="l-core">
+      <svg viewBox="0 0 24 24">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+    </div>
+  </div>
+
+  <p class="l-title">Analyzing security…</p>
+  <p class="l-url" id="loading-url"></p>
+
+  <ul class="l-steps">
+    <li class="l-step" id="step-vt">
+      <div class="l-step-dot" id="dot-vt">1</div>
+      <span>VirusTotal reputation</span>
+    </li>
+    <li class="l-step" id="step-deep">
+      <div class="l-step-dot" id="dot-deep">2</div>
+      <span>GMI deep page scan</span>
+    </li>
+    <li class="l-step" id="step-ai">
+      <div class="l-step-dot" id="dot-ai">3</div>
+      <span>Gemini AI analysis</span>
+    </li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════
+     SCREEN: Result
+═══════════════════════════════════ -->
+<div id="screen-result" class="screen">
+  <div class="result-scroll">
+
+    <!-- Verdict hero -->
+    <div class="v-hero" id="v-hero">
+      <div class="v-icon" id="v-icon"></div>
+      <div class="v-verdict" id="v-verdict"></div>
+      <div class="v-entity"  id="v-entity"></div>
+      <div class="v-purpose" id="v-purpose"></div>
+    </div>
+
+    <!-- Details -->
+    <div class="v-details" id="v-details">
+
+      <!-- Autofill -->
+      <div class="v-sec" id="autofill-sec" style="display:none">
+        <div class="autofill-pill">
+          <div class="autofill-dot"></div>
+          Autofill ready — all data stays on your device
+        </div>
+      </div>
+
+      <!-- Assessment -->
+      <div class="v-sec">
+        <div class="v-sec-lbl">Security assessment</div>
+        <p class="risk-text" id="v-summary"></p>
+      </div>
+
+      <!-- Threat indicators -->
+      <div class="v-sec" id="threats-sec" style="display:none">
+        <div class="v-sec-lbl">Threat indicators</div>
+        <div id="threats-list"></div>
+      </div>
+
+      <!-- Vault keys -->
+      <div class="v-sec" id="vault-sec" style="display:none">
+        <div class="v-sec-lbl">Data this form requests</div>
+        <div class="chips" id="vault-chips"></div>
+      </div>
+
+      <!-- VirusTotal -->
+      <div class="v-sec">
+        <div class="v-sec-lbl">VirusTotal scan</div>
+        <div class="vt-grid">
+          <div class="vt-box">
+            <div class="vt-box-lbl">Malicious</div>
+            <div class="vt-box-val" id="vt-mal">—</div>
+            <div class="vt-box-sub" id="vt-engines">engines</div>
+          </div>
+          <div class="vt-box">
+            <div class="vt-box-lbl">Threat ratio</div>
+            <div class="vt-box-val" id="vt-ratio">—</div>
+            <div class="vt-box-sub" id="vt-noise"></div>
+          </div>
+          <div class="vt-box">
+            <div class="vt-box-lbl">Domain</div>
+            <div class="vt-box-val" id="vt-domain">—</div>
+            <div class="vt-box-sub">reputation</div>
+          </div>
+          <div class="vt-box">
+            <div class="vt-box-lbl">Harmless</div>
+            <div class="vt-box-val good" id="vt-harmless">—</div>
+            <div class="vt-box-sub">confirmations</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Screenshot -->
+      <div class="v-sec" id="ss-sec" style="display:none">
+        <div class="v-sec-lbl">Page screenshot — tap to enlarge</div>
+        <div class="ss-thumb" onclick="openScreenshot()">
+          <img id="ss-img" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="Page screenshot" />
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="v-sec">
+        <div class="btn-row" id="btn-row"></div>
+        <p class="action-prompt" id="action-prompt"></p>
+      </div>
+
+    </div><!-- /v-details -->
+  </div><!-- /result-scroll -->
+</div>
+
+<script>
+// ─── Config ──────────────────────────────────
+const BACKEND = window.location.origin;
+let currentUrl = '';
+let facingMode  = 'environment';
+let scanning    = false;
+
+// ─── Screens ─────────────────────────────────
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ─── Camera ──────────────────────────────────
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode, width: { ideal: 1280 }, height: { ideal: 1280 } }
+    });
+    const video = document.getElementById('video');
+    video.srcObject = stream;
+    await video.play();
+    show('screen-scanner');
+    scanning = true;
+    requestAnimationFrame(scanFrame);
+  } catch (err) {
+    console.warn('Camera error:', err);
+    show('screen-cam-error');
+  }
+}
+
+function stopCamera() {
+  scanning = false;
+  const video = document.getElementById('video');
+  if (video.srcObject) {
+    video.srcObject.getTracks().forEach(t => t.stop());
+    video.srcObject = null;
+  }
+}
+
+async function flipCamera() {
+  facingMode = facingMode === 'environment' ? 'user' : 'environment';
+  stopCamera();
+  await startCamera();
+}
+
+// ─── QR scan loop ─────────────────────────────
+function scanFrame() {
+  if (!scanning) return;
+  const video  = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const ctx    = canvas.getContext('2d');
+
+  if (video.readyState === video.HAVE_ENOUGH_DATA) {
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+    const img  = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+    if (code && code.data) {
+      onQRDetected(code.data);
+      return;
+    }
+  }
+  requestAnimationFrame(scanFrame);
+}
+
+// ─── QR detected ─────────────────────────────
+function onQRDetected(raw) {
+  scanning = false;
+  ['c-tl','c-tr','c-bl','c-br'].forEach(id => document.getElementById(id).classList.add('lit'));
+  const url = raw.startsWith('http') ? raw : 'https://' + raw;
+  document.getElementById('detected-url').textContent = url;
+  document.getElementById('scanner-hint').textContent  = 'QR detected — scanning…';
+  setTimeout(() => submitScan(url), 600);
+}
+
+function submitManualUrl() {
+  const url = (document.getElementById('manual-url').value || '').trim();
+  if (!url) return;
+  submitScan(url.startsWith('http') ? url : 'https://' + url);
+}
+
+// ─── Backend call ─────────────────────────────
+async function submitScan(url) {
+  currentUrl = url;
+  stopCamera();
+  show('screen-loading');
+  document.getElementById('loading-url').textContent = url;
+
+  const steps  = ['step-vt','step-deep','step-ai'];
+  const delays = [0, 11000, 21000];
+  steps.forEach((id, i) => {
+    setTimeout(() => {
+      steps.slice(0, i).forEach(prev => setStep(prev, 'done', '✓'));
+      setStep(id, 'active', '→');
+    }, delays[i]);
+  });
+
+  try {
+    const res = await fetch(`${BACKEND}/scan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+      signal: AbortSignal.timeout(120_000),
+    });
+
+    steps.forEach(id => setStep(id, 'done', '✓'));
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      showError(err.error || 'Backend error');
+      return;
+    }
+    showResult(await res.json());
+  } catch (err) {
+    showError(err.name === 'TimeoutError'
+      ? 'Request timed out — the backend may be busy. Try again.'
+      : err.message || 'Network error');
+  }
+}
+
+function setStep(id, cls, icon) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = `l-step ${cls}`;
+  el.querySelector('.l-step-dot').textContent = icon;
+}
+
+// ─── Render result ────────────────────────────
+function showResult(data) {
+  const verdict = (data.verdict || 'SUSPICIOUS').toUpperCase();
+  const vt      = data.virustotal || {};
+  const cls     = verdict === 'SAFE' ? 'safe' : verdict === 'SUSPICIOUS' ? 'suspicious' : 'dangerous';
+
+  const icons   = { SAFE: '✓', SUSPICIOUS: '⚠', DANGEROUS: '✕' };
+  const labels  = { SAFE: 'SAFE', SUSPICIOUS: 'USE CAUTION', DANGEROUS: 'DANGEROUS' };
+
+  // Hero
+  const hero = document.getElementById('v-hero');
+  hero.className = `v-hero ${cls}`;
+  document.getElementById('v-icon').textContent    = icons[verdict]  || '?';
+  document.getElementById('v-verdict').textContent = labels[verdict] || verdict;
+  document.getElementById('v-entity').textContent  = data.official_entity_name || '';
+  document.getElementById('v-purpose').textContent = data.page_purpose || '';
+
+  // Details card
+  document.getElementById('v-details').className = `v-details ${cls}`;
+
+  // Autofill
+  document.getElementById('autofill-sec').style.display = data.auto_fill_safe ? 'block' : 'none';
+
+  // Summary
+  document.getElementById('v-summary').textContent = data.risk_summary || 'No assessment available.';
+
+  // Threats
+  const threatsSec  = document.getElementById('threats-sec');
+  const threatsList = document.getElementById('threats-list');
+  const indicators  = data.phishing_indicators || [];
+  if (indicators.length) {
+    threatsList.innerHTML = indicators
+      .map(i => `<div class="threat-item"><span class="threat-icon">⚠</span><span>${i}</span></div>`)
+      .join('');
+    threatsSec.style.display = 'block';
+  } else {
+    threatsSec.style.display = 'none';
+  }
+
+  // Vault keys
+  const vaultSec = document.getElementById('vault-sec');
+  const keys = data.required_vault_keys || [];
+  if (keys.length && verdict !== 'DANGEROUS') {
+    document.getElementById('vault-chips').innerHTML =
+      keys.map(k => `<span class="chip">${k}</span>`).join('');
+    vaultSec.style.display = 'block';
+  } else {
+    vaultSec.style.display = 'none';
+  }
+
+  // VT
+  const mal   = vt.malicious || 0;
+  const total = vt.total_engines || 0;
+  const ratio = ((vt.malicious_ratio || 0) * 100).toFixed(1);
+
+  const malEl = document.getElementById('vt-mal');
+  malEl.textContent = mal;
+  malEl.className   = `vt-box-val ${mal >= 2 ? 'bad' : mal === 0 ? 'good' : 'neutral'}`;
+  document.getElementById('vt-engines').textContent = `/ ${total} engines`;
+
+  const ratioEl = document.getElementById('vt-ratio');
+  ratioEl.textContent = `${ratio}%`;
+  ratioEl.className   = `vt-box-val ${parseFloat(ratio) >= 5 ? 'bad' : 'good'}`;
+  document.getElementById('vt-noise').textContent = vt.is_noise ? 'noise — false positive' : '';
+
+  const domEl = document.getElementById('vt-domain');
+  domEl.textContent = vt.domain_known_bad ? 'FLAGGED' : 'Clean';
+  domEl.className   = `vt-box-val ${vt.domain_known_bad ? 'bad' : 'good'}`;
+  document.getElementById('vt-harmless').textContent = vt.harmless || 0;
+
+  // Screenshot
+  const ssSec = document.getElementById('ss-sec');
+  if (data.gmi_screenshot) {
+    document.getElementById('ss-img').src   = `data:image/jpeg;base64,${data.gmi_screenshot}`;
+    document.getElementById('modal-img').src = `data:image/jpeg;base64,${data.gmi_screenshot}`;
+    ssSec.style.display = 'block';
+  } else {
+    ssSec.style.display = 'none';
+  }
+
+  // Action buttons
+  const btnRow = document.getElementById('btn-row');
+  const prompt = document.getElementById('action-prompt');
+  btnRow.innerHTML = '';
+  prompt.textContent = '';
+
+  if (verdict === 'SAFE') {
+    btnRow.innerHTML = `
+      <button class="btn btn-safe"  onclick="openUrl()">Open Page</button>
+      <button class="btn btn-ghost" onclick="resetScanner()">Scan Again</button>`;
+  } else if (verdict === 'SUSPICIOUS') {
+    btnRow.innerHTML = `
+      <button class="btn btn-ghost" onclick="resetScanner()">Go Back</button>
+      <button class="btn btn-warn"  onclick="openUrl()">Continue Anyway</button>`;
+    prompt.textContent = 'Unverified site — proceed carefully and avoid entering sensitive data.';
+  } else {
+    btnRow.innerHTML = `
+      <button class="btn btn-danger" style="flex:1" onclick="resetScanner()">Block — Go Back</button>`;
+    prompt.textContent = 'Do not enter any personal information on this page.';
+  }
+
+  show('screen-result');
+}
+
+// ─── Error screen ─────────────────────────────
+function showError(msg) {
+  show('screen-cam-error');
+  document.querySelector('#screen-cam-error h2').textContent = 'Scan Failed';
+  document.querySelector('#screen-cam-error p').textContent  = msg;
+  document.getElementById('cam-input-wrap').style.display    = 'none';
+  const card = document.querySelector('.cam-card');
+  let retry = card.querySelector('.btn-retry');
+  if (!retry) {
+    retry = document.createElement('button');
+    retry.className  = 'btn-full btn-retry';
+    retry.style.marginTop = '8px';
+    card.appendChild(retry);
+  }
+  retry.textContent = 'Try Again';
+  retry.onclick = resetScanner;
+}
+
+// ─── Helpers ─────────────────────────────────
+function openUrl() { window.open(currentUrl, '_blank', 'noopener,noreferrer'); }
+
+function openScreenshot() { document.getElementById('ss-modal').classList.add('open'); }
+
+async function resetScanner() {
+  // Restore cam-error screen to pristine state
+  document.querySelector('#screen-cam-error h2').textContent = 'Camera Unavailable';
+  document.querySelector('#screen-cam-error p').textContent  =
+    'Grant camera permission in your browser, or paste a URL below to run a manual scan.';
+  document.getElementById('cam-input-wrap').style.display = '';
+  const retry = document.querySelector('.btn-retry');
+  if (retry) retry.remove();
+
+  document.getElementById('detected-url').textContent = '';
+  document.getElementById('scanner-hint').textContent  = 'Point at a QR code to scan';
+  ['c-tl','c-tr','c-bl','c-br'].forEach(id => document.getElementById(id).classList.remove('lit'));
+
+  [['step-vt','1'],['step-deep','2'],['step-ai','3']].forEach(([id, num]) => setStep(id, '', num));
+
+  scanning = true;
+  await startCamera();
+}
+
+// ─── Boot ─────────────────────────────────────
+startCamera();
+</script>
+</body>
+</html>

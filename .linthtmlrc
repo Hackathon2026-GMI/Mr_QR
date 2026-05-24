@@ -1,0 +1,10 @@
+{
+  "indent-style": false,
+  "tag-bans": false,
+  "attr-bans": false,
+  "attr-name-style": false,
+  "class-style": false,
+  "id-style": false,
+  "id-class-style": false,
+  "id-class-no-ad": false
+}
