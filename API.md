@@ -7,11 +7,23 @@ The frontend sends a URL, receives a structured verdict, and (when safe) uses th
 
 ## Base URL
 
+The backend runs locally via Rocketride and is exposed to the internet using ngrok.
+
 ```
-POST https://<your-rocketride-webhook-url>
+POST https://<ngrok-subdomain>.ngrok.io/<rocketride-webhook-path>
 ```
 
-The exact URL is provided by Rocketride after the pipeline is activated (Settings → Webhook → Copy URL).
+**How to get the URL:**
+1. Start everything with `.\start.ps1` (starts the GMI worker)
+2. Open Rocketride, load `pipelines/mr_qr_security.pipe`, activate it, note the webhook port
+3. Run `ngrok http <rocketride-port>` — ngrok prints an HTTPS URL
+4. That HTTPS URL is what the frontend sends scan requests to
+
+**Same-network shortcut (phone and laptop on the same WiFi):**
+```
+http://192.168.x.x:<rocketride-port>/<webhook-path>
+```
+Run `ipconfig` on the laptop to find your local IP (`IPv4 Address` under your WiFi adapter).
 
 ---
 
